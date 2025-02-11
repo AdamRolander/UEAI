@@ -9,16 +9,20 @@ import numpy as np
 from PIL import Image
 
 # TODO:
-# - add filepath for depth map if repeated augs of same photo
+# - accept an array of filepaths for one instance?
+# - would be less random for augmentation params with current main implement 
 # - 
 
 class AugmentationGenerator():
     def __init__(self, path_to_image, model_type="DPT_Large"):
         self.image = cv2.imread(path_to_image)
         
+        # 150 px black padding to imgs, more consistent 
         self.image = cv2.copyMakeBorder(
             self.image, 150, 150, 150, 150, cv2.BORDER_CONSTANT, value=(0, 0, 0) # see if this affecs the depth map
         )
+
+        # Follwing docs: https://pytorch.org/hub/intelisl_midas_v2/
         self.model_type = model_type
         self.midas = torch.hub.load("intel-isl/MiDaS", self.model_type)
 
@@ -34,6 +38,9 @@ class AugmentationGenerator():
             self.transform = midas_transforms.small_transform
 
     def generateDepthMap(self):
+        if hasattr(self, "depth_map") and self.depth_map is not None:
+            return self.depth_map
+        
         img_rgb = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
         input_batch = self.transform(img_rgb).to(self.device)
 
@@ -46,7 +53,8 @@ class AugmentationGenerator():
                 align_corners=False,
             ).squeeze()
 
-        return prediction.cpu().numpy()
+        self.depth_map = prediction.cpu().numpy()
+        return self.depth_map
 
     def rotate(self, image=None, displacement_x=-50, displacement_y=-50, depth_map=None):
         """Apply depth-based displacement (rotation simulation)."""
@@ -100,26 +108,36 @@ class AugmentationGenerator():
         return augmented_image
 
 if __name__ == '__main__':
-    path_to_image="Downloads/Subject_2.png"
-    output_dirs = ["output/combined_s2"] # "output/rotation", "output/zoom",
+    # path_to_image="expo_data/Front.png"
+    output_dirs = ["augmented/front_combined", "augmented/back_combined", "augmented/ss_combined", "augmented/ds_combined"] # "output/rotation", "output/zoom",
     
     for directory in output_dirs:
         os.makedirs(directory, exist_ok=True)
     
-    generator = AugmentationGenerator(path_to_image)
+    front = AugmentationGenerator("expo_data/Front.png")
+    back = AugmentationGenerator("expo_data/Back.png")
+    spray_side = AugmentationGenerator("expo_data/Sprayside.png")
+    dry_side = AugmentationGenerator("expo_data/Dryside.png")
     
-    for i in range(300):
+    for i in range(100):
         disp_x = random.randint(-650, 650)
         disp_y = random.randint(-650, 650) # random for now. will probably take some tweaking
+        
+        small_x = random.randint(-250, 250)
+        small_y = random.randint(-250, 250)
+
         zoom_factor = random.uniform(0.35, 1.35)
 
-        # rotated_img = generator.rotate(displacement_x=disp_x, displacement_y=disp_y)
-        # zoomed_img = generator.zoom(zoom_factor=zoom_factor)
-        combined_img = generator.apply_augmentation(disp_x, disp_y, zoom_factor)
+        # combined_front = front.apply_augmentation(disp_x, disp_y, zoom_factor)
+        combined_back = back.apply_augmentation(disp_x, disp_y, zoom_factor)
+        # combined_ss = spray_side.apply_augmentation(small_x, small_y, zoom_factor)
+        # combined_ds = dry_side.apply_augmentation(small_x, small_y, zoom_factor)
 
-        # cv2.imwrite(f"output/rotation/rotated_{i}.png", rotated_img)
-        # cv2.imwrite(f"output/zoom/zoomed_{i}.png", zoomed_img)
-        cv2.imwrite(f"output/combined_s2/combined_{i}.png", combined_img)
+        # cv2.imwrite(f"augmented/front_combined/{i}.png", combined_front)
+        cv2.imwrite(f"augmented/back_combined/{i}.png", combined_back)
+        # cv2.imwrite(f"augmented/ss_combined/{i}.png", combined_ss)
+        # cv2.imwrite(f"augmented/ds_combined/{i}.png", combined_ds)
+
     
     print("Augmented images saved successfully!")
     # python3 AugmentationGenerator.py
@@ -127,12 +145,12 @@ if __name__ == '__main__':
     # Displays:
 
     # Initialize the generator with the image path
-    # gen = AugmentationGenerator(path_to_image="Downloads/Subject_2.png")
+    # gen = AugmentationGenerator(path_to_image="expo_data/Sprayside.png")
 
     # # Test with different parameters for rotation and zoom
-    # img_rotated = gen.rotate(displacement_x=-50, displacement_y=50)
-    # img_zoomed = gen.zoom(zoom_factor=1.2)
-    # img_augmented = gen.apply_augmentation(displacement_x=-50, displacement_y=50, zoom_factor=1.2)
+    # img_rotated = gen.rotate(displacement_x=-650, displacement_y=-650)
+    # img_zoomed = gen.zoom(zoom_factor=1.3)
+    # img_augmented = gen.apply_augmentation(displacement_x=-350, displacement_y=-350, zoom_factor=1.3)
 
     # # Show the augmented images
     # plt.figure(figsize=(10, 5))
