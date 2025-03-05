@@ -107,6 +107,10 @@ class AugmentationGenerator():
         augmented_image = self.zoom(rotated, zoom_factor)
         return augmented_image
 
+
+##############################
+
+
 if __name__ == '__main__':
     # path_to_image="expo_data/Front.png"
     output_dirs = ["augmented/front_combined", "augmented/back_combined", "augmented/ss_combined", "augmented/ds_combined"] # "output/rotation", "output/zoom",
